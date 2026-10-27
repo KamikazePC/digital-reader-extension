@@ -92,6 +92,10 @@ from the repository folder). Then open `/test/popup.html` to try the popup and t
   OpenDyslexic is a possible next step.
 - Uses Chrome's default icon until real icons are added.
 
+## License
+
+[MIT](LICENSE) © 2026 KamikazePC
+
 ## Next phases
 
 4. Extras: reading-speed stats, bundled accessible fonts, Firefox support.
