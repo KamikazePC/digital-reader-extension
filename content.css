@@ -1,0 +1,38 @@
+/* Letters of the paragraph under the cursor. Staying inline keeps the page's
+   line breaks, kerning and link underlines; content.js lifts them with `top`. */
+dr-text,
+dr-c {
+  display: inline;
+}
+dr-c {
+  position: relative;
+}
+
+/* Reduced-motion stand-in for the lift. */
+dr-c[data-lit] {
+  background: rgba(255, 196, 0, 0.35);
+  border-radius: 2px;
+}
+
+dr-toast {
+  all: initial;
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483647;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #1f1f1f;
+  color: #fff;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: dr-toast-in 160ms ease-out;
+}
+
+@keyframes dr-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digital Reader test page</title>
+<link rel="stylesheet" href="../content.css">
+<style>
+  body { font: 18px/1.6 Georgia, serif; margin: 0; display: grid; grid-template-columns: 200px 1fr; gap: 32px; padding: 24px; }
+  nav p, aside p { font-size: 14px; color: #666; }
+  .content { max-width: 680px; }
+  #toggle { position: fixed; top: 12px; right: 12px; font: 14px system-ui; padding: 6px 12px; }
+</style>
+</head>
+<body>
+<!-- Stands in for any article page. The button does what the toolbar icon does in Chrome. -->
+<button id="toggle">Toggle reader</button>
+<nav>
+  <p>Home · Articles · About · Contact us for more information about this site.</p>
+</nav>
+<div class="content">
+  <h1>On Reading Slowly</h1>
+  <p>When reading a physical book, the subtle action of placing a finger beneath a line of text serves two functions: it keeps your focus and it sets your pace. This act is often subconscious, yet it ties you to the flow of the story.</p>
+  <p>Digital text tends to be read in bursts. The eye jumps ahead, skims a <a href="#">linked phrase</a>, and lands somewhere further down the page with only a <em>vague sense</em> of what came before. A moving cursor can bring back some of that tactile rhythm.</p>
+  <ul>
+    <li>Letters just behind the cursor rise a little, then settle back.</li>
+    <li>Only the paragraph under the cursor is changed, so long pages stay fast.</li>
+  </ul>
+  <blockquote>Reading is to the mind what exercise is to the body — and pacing matters for both.</blockquote>
+  <pre><code>// Code blocks are left alone so they stay copyable.</code></pre>
+  <p>Accented letters and emoji should stay whole: café, naïve, façade, 👩‍💻 typing away at a résumé.</p>
+</div>
+<script src="../content.js"></script>
+<script>
+  document.getElementById('toggle').onclick = () => window.__digitalReader.toggle();
+</script>
+</body>
+</html>
