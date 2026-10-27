@@ -14,6 +14,14 @@ dr-c[data-lit] {
   border-radius: 2px;
 }
 
+/* Anti-skim: content.js sets data-dr-skim on <html> while you scroll faster than reading pace. */
+html[data-dr-skim="move"] [data-dr-block] {
+  filter: url(#dr-scramble) blur(var(--dr-skim-blur, 0px));
+}
+html[data-dr-skim="still"] [data-dr-block] {
+  opacity: var(--dr-skim-fade, 1);
+}
+
 dr-toast {
   all: initial;
   position: fixed;

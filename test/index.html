@@ -30,6 +30,12 @@
   <pre><code>// Code blocks are left alone so they stay copyable.</code></pre>
   <p>Accented letters and emoji should stay whole: café, naïve, façade, 👩‍💻 typing away at a résumé.</p>
 </div>
+<script>
+  // Repeat the article so there is enough to scroll through when testing anti-skim.
+  const content = document.querySelector('.content');
+  const original = [...content.children].slice(1);
+  for (let i = 0; i < 8; i++) for (const el of original) content.append(el.cloneNode(true));
+</script>
 <script src="../content.js"></script>
 <script>
   document.getElementById('toggle').onclick = () => window.__digitalReader.toggle();

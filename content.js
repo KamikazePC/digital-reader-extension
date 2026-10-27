@@ -8,6 +8,13 @@
   const TRAIL = 6;     // how many letters behind the cursor lift, tapering off
   const EASE = 0.2;    // share of the remaining distance covered each frame (lower = more lag)
   const MIN_CHARS = 25;
+
+  // Anti-skim: scrolling faster than SKIM_SPEED (screen heights per second) scrambles the text,
+  // reaching full strength at twice that speed.
+  const SKIM_SPEED = 1.5;
+  const MAX_DISPLACE_PX = 16;  // how far the scramble shifts slices of text
+  const MAX_BLUR_PX = 1.5;
+  const MIN_FADE = 0.35;       // opacity at full strength when reduced motion is on
   const BLOCKS = 'p, li, blockquote, dd, figcaption';
   const SKIP = 'pre, code, kbd, samp, script, style, textarea, input, select, button, svg, math, [contenteditable]:not([contenteditable="false"])';
   const PAGE_CHROME = 'nav, aside, footer, [role="navigation"], [role="complementary"], [role="contentinfo"]';
@@ -24,6 +31,13 @@
   let pointer = null;      // last cursor position, client coordinates
   let pointerDirty = false;
   let frame = 0;
+
+  let scrollSpeed = 0;              // smoothed scroll speed, px per second
+  let lastScrollAt = 0;
+  let skim = 0;                     // current distortion strength, 0..1
+  let skimPainted = 0;
+  let scrollState = new WeakMap();  // scroller -> { pos, t, holdsArticle }
+  let svg = null;                   // holds the scramble filter
 
   // ---- Finding the article ----
 
@@ -173,7 +187,90 @@
       }
       if (now !== to) moving = true;
     }
+    if (updateSkim()) moving = true;
     if (moving) schedule();
+  }
+
+  // ---- Anti-skim ----
+
+  // Returns true while the distortion is still changing and needs more frames.
+  function updateSkim() {
+    // Without new scroll events the speed decays to zero.
+    if (performance.now() - lastScrollAt > 80) scrollSpeed *= 0.8;
+    if (scrollSpeed < 5) scrollSpeed = 0;
+
+    const pageSpeed = scrollSpeed / innerHeight;
+    const target = Math.min(1, Math.max(0, (pageSpeed - SKIM_SPEED) / SKIM_SPEED));
+    // Come on quickly, clear up a little more slowly.
+    skim += (target - skim) * (target > skim ? 0.5 : 0.15);
+    if (Math.abs(target - skim) < 0.01) skim = target;
+    paintSkim();
+    return skim > 0 || scrollSpeed > 0;
+  }
+
+  function paintSkim() {
+    const root = document.documentElement;
+    if (skim === 0) {
+      if (skimPainted !== 0) {
+        root.removeAttribute('data-dr-skim');
+        root.style.removeProperty('--dr-skim-blur');
+        root.style.removeProperty('--dr-skim-fade');
+        skimPainted = 0;
+      }
+      return;
+    }
+    if (reduceMotion.matches) {
+      root.setAttribute('data-dr-skim', 'still');
+      root.style.setProperty('--dr-skim-fade', (1 - (1 - MIN_FADE) * skim).toFixed(3));
+    } else {
+      root.setAttribute('data-dr-skim', 'move');
+      root.style.setProperty('--dr-skim-blur', `${(MAX_BLUR_PX * skim).toFixed(2)}px`);
+      const [noise, displace] = svg.querySelectorAll('feTurbulence, feDisplacementMap');
+      displace.setAttribute('scale', (MAX_DISPLACE_PX * skim).toFixed(1));
+      noise.setAttribute('seed', String(Math.floor(Math.random() * 1000)));  // new pattern each frame
+    }
+    skimPainted = skim;
+  }
+
+  function onScroll(e) {
+    onLayoutChange();
+    const scroller = e.target === document ? document.scrollingElement : e.target;
+    if (!(scroller instanceof Element)) return;
+    const now = performance.now();
+    const pos = scroller.scrollTop;
+    let state = scrollState.get(scroller);
+    if (!state) {
+      // Only scrolling that moves the article counts, not a sidebar or a code box.
+      state = { holdsArticle: scroller === document.scrollingElement || blocks.some((b) => scroller.contains(b)) };
+      scrollState.set(scroller, state);
+    }
+    const dt = (now - state.t) / 1000;
+    // A jump of more than a screen at once (Home key, a table-of-contents link) is navigation, not skimming.
+    const jumped = Math.abs(pos - state.pos) > innerHeight;
+    if (state.holdsArticle && dt > 0 && dt < 0.2 && !jumped) {
+      scrollSpeed += (Math.abs(pos - state.pos) / dt - scrollSpeed) * 0.35;
+      lastScrollAt = now;
+    }
+    state.pos = pos;
+    state.t = now;
+  }
+
+  // An SVG filter that slices the text into horizontal bands and shifts them sideways.
+  function createScrambleFilter() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const el = (name, attrs) => {
+      const node = document.createElementNS(ns, name);
+      for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+      return node;
+    };
+    const root = el('svg', { 'aria-hidden': 'true', width: '0', height: '0', style: 'position:absolute;width:0;height:0' });
+    const filter = el('filter', { id: 'dr-scramble', x: '-5%', y: '-20%', width: '110%', height: '140%' });
+    filter.append(
+      el('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.008 0.6', numOctaves: '1', seed: '1', result: 'noise' }),
+      el('feDisplacementMap', { in: 'SourceGraphic', in2: 'noise', scale: '0', xChannelSelector: 'R', yChannelSelector: 'G' }),
+    );
+    root.append(filter);
+    return root;
   }
 
   // ---- Events ----
@@ -209,9 +306,11 @@
     blocks = found;
     for (const b of blocks) b.setAttribute('data-dr-block', '');
     addEventListener('mousemove', onPointerMove, { passive: true });
-    addEventListener('scroll', onLayoutChange, { capture: true, passive: true });
+    addEventListener('scroll', onScroll, { capture: true, passive: true });
     addEventListener('resize', onLayoutChange, { passive: true });
     document.documentElement.addEventListener('mouseleave', onPointerLeave);
+    svg = createScrambleFilter();
+    document.body.append(svg);
     enabled = true;
     toast(`Digital Reader on · ${blocks.length} paragraphs`);
     return true;
@@ -219,12 +318,18 @@
 
   function disable() {
     removeEventListener('mousemove', onPointerMove);
-    removeEventListener('scroll', onLayoutChange, { capture: true });
+    removeEventListener('scroll', onScroll, { capture: true });
     removeEventListener('resize', onLayoutChange);
     document.documentElement.removeEventListener('mouseleave', onPointerLeave);
     cancelAnimationFrame(frame);
     frame = 0;
     deactivate();
+    scrollSpeed = 0;
+    skim = 0;
+    paintSkim();
+    scrollState = new WeakMap();
+    svg.remove();
+    svg = null;
     for (const b of blocks) b.removeAttribute('data-dr-block');
     blocks = [];
     pointer = null;
