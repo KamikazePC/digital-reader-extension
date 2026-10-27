@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digital Reader popup test</title>
+<link rel="stylesheet" href="../popup.css">
+<style>
+  /* The real popup on the right, wired to the sample article on the left through stubbed chrome.* APIs. */
+  body { display: flex; height: 100vh; overflow: hidden; }
+  #page { flex: 1; min-width: 0; border: 0; }
+  #panel { flex: none; overflow: auto; border-left: 1px solid var(--line); }
+  #badge { margin: 0 16px 12px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<iframe id="page" src="index.html" title="Sample article"></iframe>
+<div id="panel"><p id="badge">Badge: (none)</p></div>
+<script src="chrome-stub.js"></script>
+<script>
+  const frame = document.getElementById('page');
+  const loadScript = (doc, src, type) => new Promise((resolve, reject) => {
+    const s = doc.createElement('script');
+    s.src = src;
+    if (type) s.type = type;
+    s.onload = resolve;
+    s.onerror = reject;
+    doc.body.append(s);
+  });
+
+  // The popup's tab is the framed article; scripts "injected into the tab" run inside the frame.
+  Object.assign(window.chromeStub, {
+    tabs: { query: async () => [{ id: 1, url: frame.contentWindow.location.href }] },
+    action: {
+      setBadgeText: async ({ text }) => { document.getElementById('badge').textContent = `Badge: ${text || '(none)'}`; },
+      setBadgeBackgroundColor: async () => {},
+    },
+    scripting: {
+      insertCSS: async () => {},
+      async executeScript({ func, args = [], files }) {
+        const w = frame.contentWindow;
+        if (files) {
+          for (const f of files) await loadScript(w.document, `../${f}`);
+          return [{ result: undefined }];
+        }
+        return [{ result: await w.eval(`(${func})`)(...args) }];
+      },
+    },
+  });
+
+  frame.addEventListener('load', async () => {
+    const html = await (await fetch('../popup.html')).text();
+    const popup = new DOMParser().parseFromString(html, 'text/html').querySelector('.popup');
+    document.getElementById('panel').prepend(document.importNode(popup, true));
+    await loadScript(document, '../settings.js');
+    await loadScript(document, '../reader.js');
+    await loadScript(document, '../popup.js', 'module');
+  }, { once: true });
+</script>
+</body>
+</html>

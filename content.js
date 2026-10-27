@@ -1,20 +1,24 @@
 // Digital Reader content script.
-// Lifts the letters just behind the cursor, like a finger running under a line in a book.
-// background.js injects it on demand; window.__digitalReader.toggle() turns it on and off.
+// Lifts the letters just behind the cursor, like a finger running under a line in a book,
+// scrambles the text when you scroll too fast, and applies your font and spacing settings.
+// reader.js injects it (after settings.js) on demand; window.__digitalReader.setEnabled() turns it on and off.
 (() => {
   if (window.__digitalReader) return;
+
+  const Settings = globalThis.DigitalReaderSettings;
+  const host = location.hostname;
 
   const LIFT_PX = 4;   // how far the letter right at the cursor rises
   const TRAIL = 6;     // how many letters behind the cursor lift, tapering off
   const EASE = 0.2;    // share of the remaining distance covered each frame (lower = more lag)
   const MIN_CHARS = 25;
 
-  // Anti-skim: scrolling faster than SKIM_SPEED (screen heights per second) scrambles the text,
-  // reaching full strength at twice that speed.
-  const SKIM_SPEED = 1.5;
+  // Anti-skim: scrolling faster than settings.skimSpeed (screen heights per second) scrambles
+  // the text, reaching full strength at twice that speed.
   const MAX_DISPLACE_PX = 16;  // how far the scramble shifts slices of text
   const MAX_BLUR_PX = 1.5;
   const MIN_FADE = 0.35;       // opacity at full strength when reduced motion is on
+
   const BLOCKS = 'p, li, blockquote, dd, figcaption';
   const SKIP = 'pre, code, kbd, samp, script, style, textarea, input, select, button, svg, math, [contenteditable]:not([contenteditable="false"])';
   const PAGE_CHROME = 'nav, aside, footer, [role="navigation"], [role="complementary"], [role="contentinfo"]';
@@ -23,7 +27,9 @@
   const segmenter = 'Segmenter' in Intl ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
   const graphemes = (s) => (segmenter ? Array.from(segmenter.segment(s), (g) => g.segment) : Array.from(s));
 
+  let settings = { ...Settings.DEFAULTS };
   let enabled = false;
+  let switching = Promise.resolve(enabled);  // serializes on/off requests
   let blocks = [];
   let active = null;       // the paragraph currently split into letters: { el, wrappers, chars, lines }
   const lift = new Map();  // letter -> current lift in px
@@ -136,7 +142,7 @@
 
   function setGoals() {
     goal.clear();
-    if (!active || !pointer) return;
+    if (!active || !pointer || !settings.lift) return;
     active.lines ||= measureLines();
     const { x, y } = pointer;
 
@@ -166,6 +172,7 @@
 
   function tick() {
     frame = 0;
+    if (!enabled) return;
     if (pointerDirty) {
       pointerDirty = false;
       setGoals();
@@ -200,7 +207,8 @@
     if (scrollSpeed < 5) scrollSpeed = 0;
 
     const pageSpeed = scrollSpeed / innerHeight;
-    const target = Math.min(1, Math.max(0, (pageSpeed - SKIM_SPEED) / SKIM_SPEED));
+    const limit = settings.skimSpeed;
+    const target = settings.antiSkim ? Math.min(1, Math.max(0, (pageSpeed - limit) / limit)) : 0;
     // Come on quickly, clear up a little more slowly.
     skim += (target - skim) * (target > skim ? 0.5 : 0.15);
     if (Math.abs(target - skim) < 0.01) skim = target;
@@ -273,12 +281,48 @@
     return root;
   }
 
+  // ---- Settings ----
+
+  // [setting, attribute on <html>, CSS variable, how to write the value]; content.css does the rest.
+  const TYPOGRAPHY = [
+    ['font', 'data-dr-font', '--dr-font', (v) => v],
+    ['size', 'data-dr-size', '--dr-size', (v) => `${v}px`],
+    ['lineHeight', 'data-dr-line', '--dr-line', (v) => String(v)],
+    ['letterSpacing', 'data-dr-spacing', '--dr-spacing', (v) => `${v}em`],
+  ];
+
+  function applyTypography(on) {
+    const root = document.documentElement;
+    for (const [key, attr, prop, format] of TYPOGRAPHY) {
+      const value = settings[key];
+      if (on && value !== null && value !== '') {
+        root.setAttribute(attr, '');
+        root.style.setProperty(prop, format(value));
+      } else {
+        root.removeAttribute(attr);
+        root.style.removeProperty(prop);
+      }
+    }
+  }
+
+  async function loadSettings() {
+    ({ settings } = await Settings.load(host));
+    if (!enabled) return;
+    applyTypography(true);
+    if (!settings.lift) deactivate();
+    onLayoutChange();  // text may have moved
+  }
+
+  function onStorageChange(changes, area) {
+    if (area === 'sync' && (changes.defaults || changes[Settings.siteKey(host)])) loadSettings();
+  }
+
   // ---- Events ----
 
   function onPointerMove(e) {
     pointer = { x: e.clientX, y: e.clientY };
     const block = e.target instanceof Element ? e.target.closest('[data-dr-block]') : null;
-    if (block) activate(block);
+    if (block && settings.lift) activate(block);
     pointerDirty = true;
     schedule();
   }
@@ -297,30 +341,36 @@
 
   // ---- On / off ----
 
-  function enable() {
+  async function enable() {
+    if (enabled) return true;
     const found = findBlocks();
     if (!found.length) {
       toast('Digital Reader: no article text found on this page');
       return false;
     }
+    ({ settings } = await Settings.load(host));
     blocks = found;
     for (const b of blocks) b.setAttribute('data-dr-block', '');
     addEventListener('mousemove', onPointerMove, { passive: true });
     addEventListener('scroll', onScroll, { capture: true, passive: true });
     addEventListener('resize', onLayoutChange, { passive: true });
     document.documentElement.addEventListener('mouseleave', onPointerLeave);
+    chrome.storage.onChanged.addListener(onStorageChange);
     svg = createScrambleFilter();
     document.body.append(svg);
     enabled = true;
+    applyTypography(true);
     toast(`Digital Reader on · ${blocks.length} paragraphs`);
     return true;
   }
 
   function disable() {
+    if (!enabled) return false;
     removeEventListener('mousemove', onPointerMove);
     removeEventListener('scroll', onScroll, { capture: true });
     removeEventListener('resize', onLayoutChange);
     document.documentElement.removeEventListener('mouseleave', onPointerLeave);
+    chrome.storage.onChanged.removeListener(onStorageChange);
     cancelAnimationFrame(frame);
     frame = 0;
     deactivate();
@@ -330,6 +380,7 @@
     scrollState = new WeakMap();
     svg.remove();
     svg = null;
+    applyTypography(false);
     for (const b of blocks) b.removeAttribute('data-dr-block');
     blocks = [];
     pointer = null;
@@ -348,8 +399,15 @@
     toastTimer = setTimeout(() => toastEl.remove(), 2200);
   }
 
+  // Each request waits for the previous one, so quick double-clicks can't half-enable the reader.
+  function setEnabled(want) {
+    switching = switching.then(() => (want ? enable() : disable()), () => enabled);
+    return switching;
+  }
+
   window.__digitalReader = {
-    toggle: () => (enabled ? disable() : enable()),
+    setEnabled,
+    toggle: () => setEnabled(!enabled),
     get enabled() { return enabled; },
   };
 })();

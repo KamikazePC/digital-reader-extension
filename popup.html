@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Digital Reader</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<main class="popup">
+  <header class="head">
+    <div>
+      <h1>Digital Reader</h1>
+      <p class="site" id="site">This page</p>
+    </div>
+    <label class="switch" title="Turn the reader on or off (Alt+Shift+R)">
+      <input type="checkbox" id="enabled" role="switch" aria-label="Reader on this page">
+      <span class="track" aria-hidden="true"></span>
+    </label>
+  </header>
+
+  <p class="notice" id="notice" hidden></p>
+
+  <section>
+    <h2>Text</h2>
+    <div class="field">
+      <label for="font">Font</label>
+      <select id="font"></select>
+    </div>
+    <div class="field">
+      <label for="size">Size <output for="size" id="size-out"></output></label>
+      <input type="range" id="size" min="13" max="30" step="1" data-unit="px" data-digits="0">
+    </div>
+    <div class="field">
+      <label for="lineHeight">Line height <output for="lineHeight" id="lineHeight-out"></output></label>
+      <input type="range" id="lineHeight" min="1.2" max="2.6" step="0.1" data-unit="" data-digits="1">
+    </div>
+    <div class="field">
+      <label for="letterSpacing">Letter spacing <output for="letterSpacing" id="letterSpacing-out"></output></label>
+      <input type="range" id="letterSpacing" min="0" max="0.2" step="0.01" data-unit="em" data-digits="2">
+    </div>
+  </section>
+
+  <section>
+    <h2>Effects</h2>
+    <label class="check">
+      <input type="checkbox" id="lift">
+      <span>Cursor lift <small>Letters rise behind your cursor</small></span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="antiSkim">
+      <span>Anti-skim <small>Scramble text when scrolling too fast</small></span>
+    </label>
+    <div class="field" id="skimField">
+      <label for="skimSpeed">Triggers at <output for="skimSpeed" id="skimSpeed-out"></output></label>
+      <input type="range" id="skimSpeed" min="0.75" max="3" step="0.25">
+      <div class="scale" aria-hidden="true"><span>Strict</span><span>Relaxed</span></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span class="status" id="status" aria-live="polite"></span>
+    <div class="buttons">
+      <button type="button" id="reset" title="Forget this site's settings and use your defaults">Reset site</button>
+      <button type="button" id="makeDefault" title="Use these settings on sites you haven't customized">Set as default</button>
+    </div>
+  </footer>
+</main>
+<script src="settings.js"></script>
+<script src="reader.js"></script>
+<script src="popup.js" type="module"></script>
+</body>
+</html>

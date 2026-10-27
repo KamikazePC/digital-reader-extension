@@ -1,19 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Digital Reader",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Read any article like you're running a finger under the line: letters lift as your cursor passes.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage"],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Toggle Digital Reader (Alt+Shift+R)"
+    "default_title": "Digital Reader",
+    "default_popup": "popup.html"
   },
   "commands": {
-    "_execute_action": {
+    "toggle-reader": {
       "suggested_key": { "default": "Alt+Shift+R" },
-      "description": "Toggle Digital Reader on this page"
+      "description": "Turn Digital Reader on or off on this page"
     }
   }
 }

@@ -14,6 +14,23 @@ dr-c[data-lit] {
   border-radius: 2px;
 }
 
+/* Popup settings: content.js sets these attributes on <html> only for settings you've changed,
+   so anything left at "page default" keeps the site's own styling. Code stays monospace. */
+html[data-dr-font] [data-dr-block],
+html[data-dr-font] [data-dr-block] :not(code, kbd, samp, pre, pre *) {
+  font-family: var(--dr-font) !important;
+}
+html[data-dr-size] [data-dr-block] {
+  font-size: var(--dr-size) !important;
+}
+html[data-dr-line] [data-dr-block] {
+  line-height: var(--dr-line) !important;
+}
+html[data-dr-spacing] [data-dr-block],
+html[data-dr-spacing] [data-dr-block] * {
+  letter-spacing: var(--dr-spacing) !important;
+}
+
 /* Anti-skim: content.js sets data-dr-skim on <html> while you scroll faster than reading pace. */
 html[data-dr-skim="move"] [data-dr-block] {
   filter: url(#dr-scramble) blur(var(--dr-skim-blur, 0px));

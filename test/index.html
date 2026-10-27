@@ -36,6 +36,8 @@
   const original = [...content.children].slice(1);
   for (let i = 0; i < 8; i++) for (const el of original) content.append(el.cloneNode(true));
 </script>
+<script src="chrome-stub.js"></script>
+<script src="../settings.js"></script>
 <script src="../content.js"></script>
 <script>
   document.getElementById('toggle').onclick = () => window.__digitalReader.toggle();
