@@ -370,11 +370,12 @@
 
   // ---- On / off ----
 
-  async function enable() {
+  // quiet: started automatically, so a page without an article isn't worth a message.
+  async function enable(quiet = false) {
     if (enabled) return true;
     const found = findBlocks();
     if (!found.length) {
-      toast('Digital Reader: no article text found on this page');
+      if (!quiet) toast('Digital Reader: no article text found on this page');
       return false;
     }
     ({ settings } = await Settings.load(host));
@@ -433,8 +434,8 @@
   }
 
   // Each request waits for the previous one, so quick double-clicks can't half-enable the reader.
-  function setEnabled(want) {
-    switching = switching.then(() => (want ? enable() : disable()), () => enabled);
+  function setEnabled(want, { quiet = false } = {}) {
+    switching = switching.then(() => (want ? enable(quiet) : disable()), () => enabled);
     return switching;
   }
 

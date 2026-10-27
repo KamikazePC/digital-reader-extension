@@ -80,7 +80,8 @@ h2 {
   font-size: 12px;
 }
 
-section {
+section,
+.auto {
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
 }

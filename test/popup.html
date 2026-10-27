@@ -28,8 +28,19 @@
     doc.body.append(s);
   });
 
+  // Site access the user has granted. The harness pretends every request is approved
+  // (set window.denyPermissions = true to test a refusal).
+  const granted = new Set();
+  window.denyPermissions = false;
+
   // The popup's tab is the framed article; scripts "injected into the tab" run inside the frame.
   Object.assign(window.chromeStub, {
+    permissions: {
+      contains: async ({ origins }) => origins.every((o) => granted.has(o)),
+      request: async ({ origins }) => { if (window.denyPermissions) return false; origins.forEach((o) => granted.add(o)); return true; },
+      remove: async ({ origins }) => { origins.forEach((o) => granted.delete(o)); return true; },
+      getAll: async () => ({ origins: [...granted] }),
+    },
     tabs: { query: async () => [{ id: 1, url: frame.contentWindow.location.href }] },
     action: {
       setBadgeText: async ({ text }) => { document.getElementById('badge').textContent = `Badge: ${text || '(none)'}`; },

@@ -24,7 +24,7 @@ After pulling new changes, click the reload icon on the extension's card in `chr
 - Move your cursor along a line of the article. Resting it just under a line works too.
 - Scroll at a reading pace. Fast scrolling scrambles the text, and it stays unreadable for a short wait
   before clearing: at least 1 second, plus 2 seconds per second of skimming, up to 5 seconds.
-- Reloading the page turns the reader off.
+- Reloading the page turns the reader off, unless the site is set to **Always on** (below).
 - If your system has "reduce motion" switched on, letters are highlighted instead of moved,
   and fast scrolling fades the text instead of scrambling it.
 
@@ -34,6 +34,7 @@ Everything in the popup is saved for the current site as you change it, and appl
 
 | Setting | What it does |
 | --- | --- |
+| Always on for this site | Starts the reader by itself on every page of the site. Chrome asks once for access to that site; unchecking gives the access back. Pages with no article are left alone. |
 | Font | Swap the article font for a system font. "Page font" keeps the site's own. Code stays monospace. |
 | Size, Line height, Letter spacing | Slide all the way left for "Page default"; anything else overrides the site. |
 | Cursor lift | Turn the letter-lift effect on or off. |
@@ -47,8 +48,9 @@ Settings sync across your Chrome profile through `chrome.storage.sync`.
 
 | File | Role |
 | --- | --- |
-| `manifest.json` | Manifest V3. Asks for `activeTab`, `scripting` and `storage`, so it can only read a page after you open the popup or press the shortcut. |
-| `background.js` | Handles the Alt+Shift+R shortcut and clears the badge on page loads. |
+| `manifest.json` | Manifest V3. Asks for `activeTab`, `scripting` and `storage`, so it can only read a page after you open the popup or press the shortcut — except on sites you've set to Always on, which you grant one at a time (`optional_host_permissions`). |
+| `background.js` | Handles the Alt+Shift+R shortcut, the badge, and registers an auto-start script for each Always-on site. |
+| `autostart.js` | Injected on Always-on sites after `content.js`; turns the reader on quietly. |
 | `reader.js` | Shared by the popup and background: injects the reader into a tab and turns it on or off. |
 | `settings.js` | Default settings, the font list, and loading/saving per-site settings. |
 | `popup.html` / `.css` / `.js` | The settings popup. |
@@ -66,6 +68,10 @@ Settings sync across your Chrome profile through `chrome.storage.sync`.
   Jumps of more than a screen at once (Home key, table-of-contents links) don't count as skimming.
   Once you stop, the scramble is held at its peak strength for the earned wait, then clears gradually.
   Scrolling slowly during the wait doesn't shorten it.
+- **Always on:** the site's host permission is the on/off state. When it's granted, `background.js`
+  registers a content script for that site (`chrome.scripting.registerContentScripts`) and turns the reader on in
+  open tabs; when it's removed — from the popup or Chrome's own site-access menu — the script is unregistered.
+  Registrations are re-checked on install and browser startup.
 - **Typography:** only settings you've changed are applied, as `!important` overrides on the article's paragraphs.
 - **Tuning:** at the top of `content.js`, `LIFT_PX`, `TRAIL` and `EASE` control the lift;
   `MAX_DISPLACE_PX`, `MAX_BLUR_PX` and `MIN_FADE` control how strong anti-skim looks;
@@ -79,6 +85,8 @@ from the repository folder). Then open `/test/popup.html` to try the popup and t
 ## Known limits
 
 - Doesn't run on `chrome://` pages, the Chrome Web Store or PDFs (Chrome blocks extensions there).
+- On Always-on sites that change pages without a full reload (single-page apps), the reader keeps the paragraphs
+  it found on the first page; toggle it off and on to pick up the new article.
 - Pages that rebuild their text with JavaScript while you hover (some React apps) may briefly fight with the effect.
 - Fonts are limited to ones already on your computer. Bundling accessible fonts such as Atkinson Hyperlegible or
   OpenDyslexic is a possible next step.

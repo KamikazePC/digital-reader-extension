@@ -9,8 +9,11 @@ const STYLE_SLIDERS = ['size', 'lineHeight', 'letterSpacing'];
 
 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 let host = '';
+let sitePattern = null;  // match pattern for "always on", only for normal web pages
 try {
-  host = new URL(tab.url).hostname;
+  const url = new URL(tab.url);
+  host = url.hostname;
+  if (/^https?:$/.test(url.protocol) && host) sitePattern = `*://${host}/*`;
 } catch {
   // No readable URL; treated as an unsupported page below.
 }
@@ -121,9 +124,31 @@ $('enabled').addEventListener('change', async (e) => {
   }
 });
 
+// ---- Always on for this site ----
+// Granting the extension access to the site is what makes it "always on": background.js sees the new
+// permission and registers the auto-start script. Removing access turns it off again.
+
+$('autoOn').addEventListener('change', async (e) => {
+  showNotice('');
+  if (e.target.checked) {
+    const granted = await chrome.permissions.request({ origins: [sitePattern] });
+    e.target.checked = granted;
+    if (granted) $('enabled').checked = true;  // background.js turns it on in this tab too
+    else showNotice('Chrome access to this site wasn\'t allowed, so it stays off.');
+  } else {
+    await chrome.permissions.remove({ origins: [sitePattern] });
+  }
+});
+
 // ---- Start ----
 
 $('site').textContent = host || 'This page';
+if (sitePattern) {
+  $('autoOn').checked = await chrome.permissions.contains({ origins: [sitePattern] });
+  $('autoOn-hint').textContent = `Starts by itself on every page of ${host}`;
+} else {
+  $('autoOn').disabled = true;
+}
 await reload();
 try {
   $('enabled').checked = await Tab.isOn(tab.id);
