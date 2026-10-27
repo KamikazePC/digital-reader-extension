@@ -41,5 +41,11 @@ globalThis.DigitalReaderSettings ??= (() => {
   const resetSite = (host) => chrome.storage.sync.remove(siteKey(host));
   const saveDefaults = (settings) => chrome.storage.sync.set({ defaults: pick(settings) });
 
-  return { DEFAULTS, FONTS, siteKey, load, save, resetSite, saveDefaults };
+  // For undoing "Set as default": read what was there, then put it back (or clear it if nothing was).
+  const loadDefaults = async () => (await chrome.storage.sync.get('defaults')).defaults ?? null;
+  const restoreDefaults = (saved) => (saved
+    ? chrome.storage.sync.set({ defaults: saved })
+    : chrome.storage.sync.remove('defaults'));
+
+  return { DEFAULTS, FONTS, siteKey, load, save, resetSite, saveDefaults, loadDefaults, restoreDefaults };
 })();

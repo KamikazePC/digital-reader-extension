@@ -10,7 +10,7 @@
   <header class="head">
     <div>
       <h1>Digital Reader</h1>
-      <p class="site" id="site">This page</p>
+      <p class="site"><span id="site">This page</span><span id="status"></span></p>
     </div>
     <label class="switch" title="Turn the reader on or off (Alt+Shift+R)">
       <input type="checkbox" id="enabled" role="switch" aria-label="Reader on this page">
@@ -18,7 +18,7 @@
     </label>
   </header>
 
-  <p class="notice" id="notice" hidden></p>
+  <p class="notice" id="notice" role="status"></p>
 
   <!-- Kept outside the settings sections: it's a Chrome permission, not a saved setting. -->
   <div class="auto">
@@ -31,19 +31,19 @@
   <section>
     <h2>Text</h2>
     <div class="field">
-      <label for="font">Font</label>
+      <div class="field-head"><label for="font">Font</label></div>
       <select id="font"></select>
     </div>
     <div class="field">
-      <label for="size">Size <output for="size" id="size-out"></output></label>
+      <div class="field-head"><label for="size">Size</label><output for="size" id="size-out"></output></div>
       <input type="range" id="size" min="13" max="30" step="1" data-unit="px" data-digits="0">
     </div>
     <div class="field">
-      <label for="lineHeight">Line height <output for="lineHeight" id="lineHeight-out"></output></label>
+      <div class="field-head"><label for="lineHeight">Line height</label><output for="lineHeight" id="lineHeight-out"></output></div>
       <input type="range" id="lineHeight" min="1.2" max="2.6" step="0.1" data-unit="" data-digits="1">
     </div>
     <div class="field">
-      <label for="letterSpacing">Letter spacing <output for="letterSpacing" id="letterSpacing-out"></output></label>
+      <div class="field-head"><label for="letterSpacing">Letter spacing</label><output for="letterSpacing" id="letterSpacing-out"></output></div>
       <input type="range" id="letterSpacing" min="0" max="0.2" step="0.01" data-unit="em" data-digits="2">
     </div>
   </section>
@@ -59,17 +59,20 @@
       <span>Anti-skim <small>Scramble text when scrolling too fast</small></span>
     </label>
     <div class="field" id="skimField">
-      <label for="skimSpeed">Triggers at <output for="skimSpeed" id="skimSpeed-out"></output></label>
-      <input type="range" id="skimSpeed" min="0.75" max="3" step="0.25">
-      <div class="scale" aria-hidden="true"><span>Strict</span><span>Relaxed</span></div>
+      <div class="field-head"><label for="skimSpeed">Triggers at</label><output for="skimSpeed" id="skimSpeed-out"></output></div>
+      <div class="slider-row">
+        <span aria-hidden="true">Strict</span>
+        <input type="range" id="skimSpeed" min="0.75" max="3" step="0.25">
+        <span aria-hidden="true">Relaxed</span>
+      </div>
     </div>
   </section>
 
   <footer class="foot">
-    <span class="status" id="status" aria-live="polite"></span>
+    <div class="feedback" id="feedback" role="status"></div>
     <div class="buttons">
-      <button type="button" id="reset" title="Forget this site's settings and use your defaults">Reset site</button>
-      <button type="button" id="makeDefault" title="Use these settings on sites you haven't customized">Set as default</button>
+      <button type="button" id="reset" title="Forget this site’s settings and use your defaults">Reset site</button>
+      <button type="button" id="makeDefault" title="Use these settings on sites you haven’t customized">Set as default</button>
     </div>
   </footer>
 </main>

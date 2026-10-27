@@ -3,9 +3,9 @@
   --surface: #f4f4f2;
   --text: #1d1d1b;
   --muted: #6b6b66;
-  --line: #e2e2dc;
+  --line: #e2e2dc;            /* decorative dividers only */
+  --control-border: #85857e;  /* edges of controls; 3:1 against --bg and --surface */
   --accent: #3b6e4f;
-  --accent-text: #ffffff;
   --focus: #3b6e4f;
   color-scheme: light dark;
 }
@@ -17,8 +17,8 @@
     --text: #ececea;
     --muted: #a3a39c;
     --line: #3a3b37;
+    --control-border: #7a7b74;
     --accent: #7fb894;
-    --accent-text: #10241a;
     --focus: #7fb894;
   }
 }
@@ -29,23 +29,24 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 0.8125rem/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/* Chrome caps popups at 600px tall, so everything here is sized to fit without scrolling. */
 .popup {
   width: 300px;
-  padding: 14px 16px 12px;
+  padding: 12px 16px;
 }
 
 h1 {
   margin: 0;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 650;
 }
 
 h2 {
-  margin: 0 0 8px;
-  font-size: 11px;
+  margin: 0 0 6px;
+  font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -57,18 +58,42 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
 }
 
+.head > div {
+  min-width: 0;
+}
+
 .site {
+  display: flex;
+  gap: 4px;
   margin: 2px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* The full host name is also shown in the "Always on" hint below. */
+#site {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 200px;
+}
+
+#status::before {
+  content: "· ";
+}
+
+#status:empty {
+  display: none;
+}
+
+/* Live regions stay in the page while empty so screen readers announce what is added. */
+.notice:empty,
+.feedback:empty {
+  margin: 0;
+  padding: 0;
 }
 
 .notice {
@@ -76,26 +101,26 @@ h2 {
   padding: 8px 10px;
   border-radius: 6px;
   background: var(--surface);
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--text);
+  font-size: 0.75rem;
 }
 
 section,
 .auto {
-  padding: 12px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--line);
 }
 
 .field + .field,
 .check + .check,
 .check + .field {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
-.field label {
+.field-head {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 output {
@@ -105,8 +130,8 @@ output {
 
 select {
   width: 100%;
-  padding: 5px 6px;
-  border: 1px solid var(--line);
+  padding: 4px 6px;
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
@@ -119,11 +144,12 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
-.scale {
+.slider-row {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .check {
@@ -141,7 +167,7 @@ input[type="range"] {
 .check small {
   display: block;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 #skimField[aria-disabled="true"] {
@@ -169,8 +195,7 @@ input[type="range"] {
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: var(--line);
-  transition: background-color 160ms ease-out;
+  background: var(--control-border);
 }
 
 .track::after {
@@ -183,7 +208,6 @@ input[type="range"] {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  transition: transform 160ms ease-out;
 }
 
 .switch input:checked + .track { background: var(--accent); }
@@ -191,15 +215,23 @@ input[type="range"] {
 .switch input:focus-visible + .track { outline: 2px solid var(--focus); outline-offset: 2px; }
 .switch input:disabled + .track { opacity: 0.4; }
 
+@media (prefers-reduced-motion: no-preference) {
+  .track { transition: background-color 160ms ease-out; }
+  .track::after { transition: transform 160ms ease-out; }
+}
+
 .foot {
   padding-top: 10px;
 }
 
-.status {
-  display: block;
+.feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .buttons {
@@ -210,19 +242,17 @@ input[type="range"] {
 
 button {
   padding: 5px 9px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: 0.75rem;
   cursor: pointer;
 }
 
-button:hover { border-color: var(--muted); }
+@media (hover: hover) {
+  button:hover { border-color: var(--text); }
+}
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-
-@media (prefers-reduced-motion: reduce) {
-  .track, .track::after { transition: none; }
-}

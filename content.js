@@ -375,7 +375,7 @@
     if (enabled) return true;
     const found = findBlocks();
     if (!found.length) {
-      if (!quiet) toast('Digital Reader: no article text found on this page');
+      if (!quiet) toast('Digital Reader: no article found on this page. Open an article, then turn it on.');
       return false;
     }
     ({ settings } = await Settings.load(host));
@@ -390,7 +390,8 @@
     document.body.append(svg);
     enabled = true;
     applyTypography(true);
-    toast(`Digital Reader on · ${blocks.length} paragraphs`);
+    const paragraphs = new Intl.PluralRules('en').select(blocks.length) === 'one' ? 'paragraph' : 'paragraphs';
+    toast(`Digital Reader on · ${blocks.length} ${paragraphs}`);
     return true;
   }
 
@@ -425,12 +426,21 @@
 
   let toastEl = null;
   let toastTimer = 0;
+  // The toast is a polite live region. It goes into the page empty and gets its text a moment later,
+  // because screen readers skip text that arrives together with its region. (A timer, not an
+  // animation frame, so it still works in background tabs, which don't draw frames.)
   function toast(message) {
-    toastEl ||= document.createElement('dr-toast');
-    toastEl.textContent = message;
-    document.documentElement.append(toastEl);
+    if (!toastEl) {
+      toastEl = document.createElement('dr-toast');
+      toastEl.setAttribute('role', 'status');
+    }
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toastEl.remove(), 2200);
+    if (!toastEl.isConnected) {
+      toastEl.textContent = '';
+      document.documentElement.append(toastEl);
+    }
+    setTimeout(() => { toastEl.textContent = message; }, 50);
+    toastTimer = setTimeout(() => toastEl.remove(), 3000);
   }
 
   // Each request waits for the previous one, so quick double-clicks can't half-enable the reader.

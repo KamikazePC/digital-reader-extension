@@ -4,6 +4,9 @@ const Settings = globalThis.DigitalReaderSettings;
 const Tab = globalThis.DigitalReaderTab;
 const $ = (id) => document.getElementById(id);
 
+const NO_ARTICLE = 'No article found on this page. Open an article, then turn the reader on.';
+const BLOCKED_PAGE = 'Chrome doesn’t allow extensions on this page. Open an article on a regular website to use the reader.';
+
 // Sliders for page styling get one extra stop below their minimum that means "page default".
 const STYLE_SLIDERS = ['size', 'lineHeight', 'letterSpacing'];
 
@@ -38,23 +41,30 @@ function readSlider(id) {
   return +value.toFixed(+range.dataset.digits);
 }
 
+// Shows a slider's value beside its label, and gives screen readers the same words instead of a bare number.
+function showValue(id, text) {
+  $(`${id}-out`).textContent = text;
+  $(id).setAttribute('aria-valuetext', text);
+}
+
 function render() {
   $('font').value = settings.font;
   for (const id of STYLE_SLIDERS) {
     const range = $(id);
     const value = settings[id];
     range.value = value === null ? range.min : value;
-    $(`${id}-out`).textContent = value === null
+    showValue(id, value === null
       ? 'Page default'
-      : `${value.toFixed(+range.dataset.digits)}${range.dataset.unit}`;
+      : `${value.toFixed(+range.dataset.digits)}${range.dataset.unit}`);
   }
   $('lift').checked = settings.lift;
   $('antiSkim').checked = settings.antiSkim;
   $('skimSpeed').value = settings.skimSpeed;
-  $('skimSpeed-out').textContent = `${settings.skimSpeed} screens/sec`;
+  showValue('skimSpeed', `${settings.skimSpeed} screens/sec`);
   $('skimSpeed').disabled = !settings.antiSkim;
   $('skimField').setAttribute('aria-disabled', String(!settings.antiSkim));
-  $('status').textContent = hasSiteSettings ? 'Saved for this site' : 'Using your defaults';
+  const status = hasSiteSettings ? 'Saved for this site' : 'Using your defaults';
+  if ($('status').textContent !== status) $('status').textContent = status;
 }
 
 function onInput(e) {
@@ -64,6 +74,7 @@ function onInput(e) {
   else if (id === 'skimSpeed') settings.skimSpeed = +e.target.value;
   else if (id === 'lift' || id === 'antiSkim') settings[id] = e.target.checked;
   else return;
+  clearFeedback();  // an Undo offered earlier would now throw away this change
   hasSiteSettings = true;
   render();
   // Save shortly after dragging pauses, and right away when a control is let go,
@@ -82,14 +93,29 @@ async function reload() {
   render();
 }
 
-function flash(message) {
-  $('status').textContent = message;
-  setTimeout(render, 1500);
+// Confirms an action in the footer with a way to take it back.
+let feedbackTimer = 0;
+function confirmWithUndo(message, undo) {
+  clearTimeout(feedbackTimer);
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = 'Undo';
+  button.addEventListener('click', async () => {
+    clearFeedback();
+    await undo();
+    await reload();
+  });
+  $('feedback').replaceChildren(message, button);
+  feedbackTimer = setTimeout(clearFeedback, 8000);
+}
+
+function clearFeedback() {
+  clearTimeout(feedbackTimer);
+  $('feedback').replaceChildren();
 }
 
 function showNotice(message) {
   $('notice').textContent = message;
-  $('notice').hidden = !message;
 }
 
 for (const section of document.querySelectorAll('section')) {
@@ -99,14 +125,16 @@ for (const section of document.querySelectorAll('section')) {
 
 $('reset').addEventListener('click', async () => {
   clearTimeout(saveTimer);
+  const before = hasSiteSettings ? { ...settings } : null;
   await Settings.resetSite(host);
   await reload();
-  flash('Reset to your defaults');
+  confirmWithUndo('Reset to your defaults.', () => (before ? Settings.save(host, before) : null));
 });
 
 $('makeDefault').addEventListener('click', async () => {
+  const before = await Settings.loadDefaults();
   await Settings.saveDefaults(settings);
-  flash('Saved as your default');
+  confirmWithUndo('Saved as your default.', () => Settings.restoreDefaults(before));
 });
 
 // ---- Reader switch ----
@@ -117,10 +145,10 @@ $('enabled').addEventListener('change', async (e) => {
   try {
     const on = await Tab.setOn(tab.id, want);
     e.target.checked = on;
-    if (want && !on) showNotice('No article text found on this page.');
+    if (want && !on) showNotice(NO_ARTICLE);
   } catch {
     e.target.checked = !want;
-    showNotice("Chrome doesn't let extensions run on this page.");
+    showNotice(BLOCKED_PAGE);
   }
 });
 
@@ -134,7 +162,7 @@ $('autoOn').addEventListener('change', async (e) => {
     const granted = await chrome.permissions.request({ origins: [sitePattern] });
     e.target.checked = granted;
     if (granted) $('enabled').checked = true;  // background.js turns it on in this tab too
-    else showNotice('Chrome access to this site wasn\'t allowed, so it stays off.');
+    else showNotice('Always on needs access to this site. Check the box again and choose Allow.');
   } else {
     await chrome.permissions.remove({ origins: [sitePattern] });
   }
@@ -153,6 +181,6 @@ await reload();
 try {
   $('enabled').checked = await Tab.isOn(tab.id);
 } catch {
-  showNotice("Chrome doesn't let extensions run on this page.");
+  showNotice(BLOCKED_PAGE);
   for (const control of document.querySelectorAll('input, select, button')) control.disabled = true;
 }

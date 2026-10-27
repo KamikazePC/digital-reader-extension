@@ -41,21 +41,32 @@ html[data-dr-skim="still"] [data-dr-block] {
 
 dr-toast {
   all: initial;
+  display: block;
   position: fixed;
   right: 16px;
   bottom: 16px;
   z-index: 2147483647;
+  max-width: min(360px, calc(100vw - 32px));
   padding: 8px 12px;
   border-radius: 8px;
   background: #1f1f1f;
   color: #fff;
-  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 0.8125rem/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   pointer-events: none;
-  animation: dr-toast-in 160ms ease-out;
+  animation: dr-toast-fade 160ms ease-out;
 }
 
-@keyframes dr-toast-in {
+/* The toast only rises into place when motion is welcome; otherwise it just fades in. */
+@media (prefers-reduced-motion: no-preference) {
+  dr-toast { animation-name: dr-toast-rise; }
+}
+
+@keyframes dr-toast-fade {
+  from { opacity: 0; }
+}
+
+@keyframes dr-toast-rise {
   from {
     opacity: 0;
     transform: translateY(4px);
