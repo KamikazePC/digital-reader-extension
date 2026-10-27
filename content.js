@@ -18,6 +18,12 @@
   const MAX_DISPLACE_PX = 16;  // how far the scramble shifts slices of text
   const MAX_BLUR_PX = 1.5;
   const MIN_FADE = 0.35;       // opacity at full strength when reduced motion is on
+  // Skimming has a cost: once you stop, the text stays scrambled for a while before clearing,
+  // so racing ahead doesn't get you anywhere faster.
+  const HOLD_BASE_S = 1;       // every skim holds the scramble at least this long...
+  const HOLD_PER_S = 2;        // ...plus this much per second spent skimming at full strength
+  const HOLD_MAX_S = 5;
+  const RECOVER_S = 1.5;       // after the hold, the text clears over about this long
 
   const BLOCKS = 'p, li, blockquote, dd, figcaption';
   const SKIP = 'pre, code, kbd, samp, script, style, textarea, input, select, button, svg, math, [contenteditable]:not([contenteditable="false"])';
@@ -42,6 +48,10 @@
   let lastScrollAt = 0;
   let skim = 0;                     // current distortion strength, 0..1
   let skimPainted = 0;
+  let penalty = 0;                  // strength the text is held at after skimming, 0..1
+  let holdS = 0;                    // extra hold time earned by skimming
+  let holdUntil = 0;                // when the text starts clearing
+  let lastSkimTick = 0;
   let scrollState = new WeakMap();  // scroller -> { pos, t, holdsArticle }
   let svg = null;                   // holds the scramble filter
 
@@ -202,16 +212,35 @@
 
   // Returns true while the distortion is still changing and needs more frames.
   function updateSkim() {
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - (lastSkimTick || now)) / 1000);
+    lastSkimTick = now;
+
     // Without new scroll events the speed decays to zero.
-    if (performance.now() - lastScrollAt > 80) scrollSpeed *= 0.8;
+    if (now - lastScrollAt > 80) scrollSpeed *= 0.8;
     if (scrollSpeed < 5) scrollSpeed = 0;
 
     const pageSpeed = scrollSpeed / innerHeight;
     const limit = settings.skimSpeed;
     const target = settings.antiSkim ? Math.min(1, Math.max(0, (pageSpeed - limit) / limit)) : 0;
-    // Come on quickly, clear up a little more slowly.
-    skim += (target - skim) * (target > skim ? 0.5 : 0.15);
-    if (Math.abs(target - skim) < 0.01) skim = target;
+
+    if (!settings.antiSkim) {
+      penalty = 0;
+      holdS = 0;
+    } else if (target > 0) {
+      // Skimming: scramble at least this hard, and earn a longer wait once you stop.
+      penalty = Math.max(penalty, target);
+      holdS = Math.min(HOLD_MAX_S - HOLD_BASE_S, holdS + dt * HOLD_PER_S * target);
+      holdUntil = now + (HOLD_BASE_S + holdS) * 1000;
+    } else if (now >= holdUntil) {
+      // Wait over: clear gradually. Slow scrolling during the wait doesn't shorten it.
+      penalty = Math.max(0, penalty - dt / RECOVER_S);
+      if (penalty === 0) holdS = 0;
+    }
+
+    // Come on quickly; clearing is already paced by the penalty.
+    skim = penalty > skim ? skim + (penalty - skim) * 0.5 : penalty;
+    if (Math.abs(penalty - skim) < 0.01) skim = penalty;
     paintSkim();
     return skim > 0 || scrollSpeed > 0;
   }
@@ -376,6 +405,10 @@
     deactivate();
     scrollSpeed = 0;
     skim = 0;
+    penalty = 0;
+    holdS = 0;
+    holdUntil = 0;
+    lastSkimTick = 0;
     paintSkim();
     scrollState = new WeakMap();
     svg.remove();

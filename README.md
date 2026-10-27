@@ -5,7 +5,7 @@ Brings the ideas from the Digital Reader experiment to any article on the web:
 - **Cursor tracking:** as your cursor moves along a line, the letters just behind it lift slightly and settle back,
   like a finger running under the text of a book.
 - **Anti-skim:** scroll faster than reading pace and the article text scrambles, more the faster you go.
-  Slow down and it clears up.
+  It stays scrambled for a few seconds after you stop (longer the more you skimmed), so skimming never pays off.
 - **Your typography:** pick the font, size, line height and letter spacing for each site.
 
 ## Install (developer mode)
@@ -22,7 +22,8 @@ After pulling new changes, click the reload icon on the extension's card in `chr
 - Click the toolbar icon to open the popup, and flip the switch to turn the reader on for this tab.
   **Alt+Shift+R** toggles it without opening the popup. The badge shows **ON**.
 - Move your cursor along a line of the article. Resting it just under a line works too.
-- Scroll at a reading pace. Fast scrolling scrambles the text until you slow down.
+- Scroll at a reading pace. Fast scrolling scrambles the text, and it stays unreadable for a short wait
+  before clearing: at least 1 second, plus 2 seconds per second of skimming, up to 5 seconds.
 - Reloading the page turns the reader off.
 - If your system has "reduce motion" switched on, letters are highlighted instead of moved,
   and fast scrolling fades the text instead of scrambling it.
@@ -63,9 +64,12 @@ Settings sync across your Chrome profile through `chrome.storage.sync`.
 - **Anti-skim:** scroll speed is smoothed and measured in screen heights per second. Above the "Triggers at" speed
   an SVG noise filter slices the text into shifting bands, reaching full strength at twice that speed.
   Jumps of more than a screen at once (Home key, table-of-contents links) don't count as skimming.
+  Once you stop, the scramble is held at its peak strength for the earned wait, then clears gradually.
+  Scrolling slowly during the wait doesn't shorten it.
 - **Typography:** only settings you've changed are applied, as `!important` overrides on the article's paragraphs.
 - **Tuning:** at the top of `content.js`, `LIFT_PX`, `TRAIL` and `EASE` control the lift;
-  `MAX_DISPLACE_PX`, `MAX_BLUR_PX` and `MIN_FADE` control how strong anti-skim looks.
+  `MAX_DISPLACE_PX`, `MAX_BLUR_PX` and `MIN_FADE` control how strong anti-skim looks;
+  `HOLD_BASE_S`, `HOLD_PER_S`, `HOLD_MAX_S` and `RECOVER_S` control how long it lingers.
 
 ## Testing without installing
 
